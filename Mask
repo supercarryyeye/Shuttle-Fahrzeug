@@ -1,0 +1,23 @@
+int image_width = image_.cols;
+        int image_height = image_.rows;
+        cv::Mat cannyedimage_;
+        cv::Canny( image_, cannyedimage_, 100, 200 );
+        // image_ = cannyedimage_;
+
+        cv::Mat mask = cv::Mat::zeros( image_.size(), CV_8UC1 );
+        std::vector<cv::Point> region_of_interest_vertices = {
+            cv::Point( 0, image_height * 0.85 ), cv::Point( image_width * 0.2, image_height * 0.6 ),
+            cv::Point( image_width * 0.8, image_height * 0.6 ),
+            cv::Point( image_width, image_height * 0.85 )};
+
+        std::vector<std::vector<cv::Point>> pts{region_of_interest_vertices};
+        cv::Scalar match_mask_color = cv::Scalar( 255, 255, 255 );
+        cv::fillPoly( mask, pts, match_mask_color );
+        cv::Mat masked_image;
+        cv::bitwise_and( cannyedimage_, mask, masked_image );
+        // image_ = masked_image;
+
+        std::vector<cv::Vec4i> lines;
+        // cv::HoughLinesP( masked_image, lines, 6, CV_PI / 60, 160, 40, 25 );
+        cv::HoughLinesP( masked_image, lines, 6, CV_PI / 180, 90, 0, 5 );
+        cv::Mat blended_img;
