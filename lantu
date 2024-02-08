@@ -1,0 +1,8 @@
+tronis socket(get tronis socket)和ecode socket data连 queue data连on new sensor data （sensor pose velocity）
+tronis socket(get tronis socket)和ecode socket data连 queue data连on new sensor data （sensorboundingbox）
+tronis socket(get tronis socket)和ecode socket data连 queue data连on new sensor data （sensorcamera）
+event tick 连 get throttle（绿线连print string的 duration），get throttle连get steering(下面绿的不用连)连print string
+vehicle movement（get vehicle movement）连 get forward speed连 multi(float*float) 连append 连print string（in string）
+
+on received data（tronis socket）( 白线连set steering input 再连 set throttle input）连get message连split（string）left连set steering input和append ，right 连set throttle input和append。。
+vehicle movement连set steering input，vehicle movement连set throttle input
