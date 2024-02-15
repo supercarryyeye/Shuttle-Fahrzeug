@@ -19,15 +19,15 @@ class LaneAssistant
 {
     // insert your custom functions and algorithms here
 public:
-    double errorsteering = 0;
-    double prevErrorsteering = 0;
-    double integralErrorsteering = 0;
+    double steering_beforePID = 0;
+    double p_Errorsteering = 0;
+    double i_Errorsteering = 0;
 
     double steeringdouble = 0;
     double throttledouble ;
     string throttle = "0.75";
     string combined;
-    double abstand;
+    double distance;
 
 	double errorthrottle = 0;
     double prevErrorthrottle = 0;
@@ -38,10 +38,10 @@ public:
     string strict2 = "Sicher Abstand:";
     string strict=strict1;
 
-	double abssteering;
-	double maximalgeschwindigkeit=75;
-    int sollabstand = 50;
-    double sollgeschwindigkeit=75;
+	double abs_steering;
+	double max_speed=75;
+    int soll_distance = 50;
+    double soll_speed=75;
 
     LaneAssistant()
     {
@@ -49,57 +49,40 @@ public:
 
     bool processData( tronis::CircularMultiQueuedSocket& socket )
     {
-        // string command = to_string( steerController.getCommand() );
-        //double error = 0;
-       // double prevError = 0;
-        //double output = 0;
-        errorsteering = detectLanes();
+        
+        steering_beforePID = detectLanes();
 		
-        double pTerm = 0.5 * errorsteering;
-        double dTerm = 0.001 * ( ( errorsteering - prevErrorsteering ) / 0.1 );
-        integralErrorsteering += errorsteering * 0.00000002;
-        double iTerm = 0.12 * integralErrorsteering;
-        prevErrorsteering = errorsteering;
+        double pTerm = 0.5 * steering_beforePID;
+        double dTerm = 0.001 * ( ( steering_beforePID - p_Errorsteering ) / 0.1 );
+        i_Errorsteering += steering_beforePID * 0.00000002;
+        double iTerm = 0.12 * i_Errorsteering;
+        p_Errorsteering = steering_beforePID;
         steeringdouble = pTerm + dTerm+iTerm;
         string steering = std::to_string( steeringdouble );
-        abstand = sqrt(pos_x * pos_x + pos_y * pos_y);
-        abssteering = std::abs( steeringdouble );
-        sollgeschwindigkeit = maximalgeschwindigkeit - abssteering * 125;
-        sollabstand = static_cast<int>( ego_velocity_ * 0.036 );
+        distance = sqrt( pos_x * pos_x + pos_y * pos_y );
+        abs_steering = std::abs( steeringdouble );
+        soll_speed = max_speed - abs_steering * 125;
+        soll_distance = static_cast<int>( ego_velocity_ * 0.036 );
         
-        /*
-		if(abstand>8000)
+        
+        if( distance > 5500 )
         {
-        if((ego_velocity_*0.036)<60)
-        {
-            throttledouble = 0.8;
-        }
-                else
-        {
-            throttledouble = 30 / ( ego_velocity_ * 0.036 );
-        }
-		}
-        else
-        {
-            throttledouble = abstand / 10000;
-		}
-                */
-        if( abstand > 5500 )
-        {
-            errorthrottle =( sollgeschwindigkeit - ego_velocity_ * 0.036 ) / sollgeschwindigkeit + 0.71;
+            errorthrottle = ( soll_speed - ego_velocity_ * 0.036 ) / soll_speed + 0.71;
+
             double pTermthrottle=0.9*errorthrottle;
             double dTermthrottle = 0.1 * ((errorthrottle-prevErrorthrottle)/0.1);
             prevErrorthrottle = errorthrottle;
             throttledouble = pTermthrottle+dTermthrottle;
-            strict = strict1 + std::to_string( sollgeschwindigkeit );
+            strict = strict1 + std::to_string( soll_speed );
         }
         else
         {
 
 
-            throttledouble =( abstand - 5000 ) / 5000 +0.71+ 0.1 * ( ( abstand-5000 - prevErrorabstand ) / 0.1 )-40/abstand;
-            prevErrorabstand = abstand - 5000;
-            strict = strict2+std::to_string( sollabstand )+"m";
+            throttledouble = ( distance - 5000 ) / 5000 + 0.71 +
+                             0.1 * ( ( distance - 5000 - prevErrorabstand ) / 0.1 ) - 40 / distance;
+            prevErrorabstand = distance - 5000;
+            strict = strict2 + std::to_string( soll_distance ) + "m";
         }
 
         throttle = std::to_string( throttledouble );
@@ -137,7 +120,6 @@ protected:
         int image_height = image_.rows;
         cv::Mat cannyedimage_;
         cv::Canny( image_, cannyedimage_, 100, 200 );
-        // image_ = cannyedimage_;
 
         cv::Mat mask = cv::Mat::zeros( image_.size(), CV_8UC1 );
         std::vector<cv::Point> region_of_interest_vertices = {
@@ -150,10 +132,9 @@ protected:
         cv::fillPoly( mask, pts, match_mask_color );
         cv::Mat masked_image;
         cv::bitwise_and( cannyedimage_, mask, masked_image );
-        // image_ = masked_image;
 
         std::vector<cv::Vec4i> lines;
-        // cv::HoughLinesP( masked_image, lines, 6, CV_PI / 60, 160, 40, 25 );
+      
         cv::HoughLinesP( masked_image, lines, 6, CV_PI / 180, 70, 40, 40 );
         cv::Mat blended_img;
 
@@ -183,42 +164,42 @@ protected:
             }
         }
 
-        int min_y = static_cast<int>( image_height * ( 3.0 / 5 ) );
-        int max_y = static_cast<int>( image_height );
+        double min_y = ( image_height * ( 3.0 / 5 ) );
+        double max_y = ( image_height );
 
         // left
-        int leftn = left_line_x.size();
+        int left_n = left_line_x.size();
         double sumleftX = 0.0, sumleftY = 0.0, sumleftXY = 0.0, sumleftXX = 0.0;
-        for( int i = 0; i < leftn; ++i )
+        for( int i = 0; i < left_n; ++i )
         {
             sumleftX += left_line_x[i];
             sumleftY += left_line_y[i];
             sumleftXY += left_line_x[i] * left_line_y[i];
             sumleftXX += left_line_x[i] * left_line_x[i];
         }
-        double left_m = ( leftn * sumleftXY - sumleftX * sumleftY ) /
-                        ( leftn * sumleftXX - sumleftX * sumleftX );
-        double left_c = ( sumleftY - left_m * sumleftX ) / leftn;
+        double left_m = ( left_n * sumleftXY - sumleftX * sumleftY ) /
+                        ( left_n * sumleftXX - sumleftX * sumleftX ); //(N*sumXY-sumX*sumY)/(N*sumXX-sumX*sumX)
+        double left_c = ( sumleftY - left_m * sumleftX ) / left_n;
 
-        int left_x_start = static_cast<int>( ( max_y - left_c ) / left_m );
-        int left_x_end = static_cast<int>( ( min_y - left_c ) / left_m );
+        double left_x_start =  ( max_y - left_c ) / left_m ;
+        double left_x_end =  ( min_y - left_c ) / left_m;
 
         // right
-        int rightn = right_line_x.size();
+        int right_n = right_line_x.size();
         double sumrightX = 0.0, sumrightY = 0.0, sumrightXY = 0.0, sumrightXX = 0.0;
-        for( int i = 0; i < rightn; ++i )
+        for( int i = 0; i < right_n; ++i )
         {
             sumrightX += right_line_x[i];
             sumrightY += right_line_y[i];
             sumrightXY += right_line_x[i] * right_line_y[i];
             sumrightXX += right_line_x[i] * right_line_x[i];
         }
-        double right_m = ( rightn * sumrightXY - sumrightX * sumrightY ) /
-                         ( rightn * sumrightXX - sumrightX * sumrightX );
-        double right_c = ( sumrightY - right_m * sumrightX ) / rightn;
+        double right_m = ( right_n * sumrightXY - sumrightX * sumrightY ) /
+                         ( right_n * sumrightXX - sumrightX * sumrightX );
+        double right_c = ( sumrightY - right_m * sumrightX ) / right_n;
 
-        int right_x_start = static_cast<int>( ( max_y - right_c ) / right_m );
-        int right_x_end = static_cast<int>( ( min_y - right_c ) / right_m );
+        double right_x_start =( max_y - right_c ) / right_m ;
+        double right_x_end =  ( min_y - right_c ) / right_m ;
 
         cv::Scalar color1 = cv::Scalar( 0, 0, 255 );
         cv::Scalar color2 = cv::Scalar( 0, 255, 255 );
@@ -270,19 +251,33 @@ protected:
 	
     bool processObject( tronis::BoxDataSub* sensorData)
     {
-        if(sensorData->Objects.size()!=0)
+
+        if( sensorData->Objects.size() != 0 )
         {
-            object_ = sensorData->Objects[0];
+        for( size_t i = 0; i < sensorData->Objects.size();i++ )
+			{
+            
+		
+            object_ = sensorData->Objects[i];
+            cout << object_.ActorName.Value() << endl;
+            if( object_.ActorName.Value() == "GenericCoupe_2" )
+				{
             otherlocation_ = object_.Pose.Location;
             pos_x = otherlocation_.X;
             pos_y = otherlocation_.Y;
+                }
+			else
+			{
+                            pos_x = 7071060;
+                            pos_y = 7071060;
+			}
+            }
 		}
-		else
-		{
-                    pos_x = 7071060;
-                    pos_y = 7071060;
-		}
-        
+        else
+        {
+          pos_x = 7071060;
+          pos_y = 7071060;
+        }
 		// do stuff
         return true;
     }
@@ -367,7 +362,11 @@ protected:
             cv::normalize( image, out, 0.0, 1.0, cv::NORM_MINMAX, image.type() );
         }
         int velocityint = static_cast<int>( velocity*0.036 );
-        int abstandint = static_cast<int>( abstand * 0.01 );
+        int abstandint = static_cast<int>( distance * 0.01 );
+        if(abstandint>10000)
+        {
+            abstandint = -1;
+        }
         int steeringint = static_cast<int>( steeringdouble*100 );
         string velocitystr ="Geschwindigkeit: "+ std::to_string( velocityint )+"km/h";
         string abstandstr = "Abstand: "+std::to_string( abstandint )+"m";
